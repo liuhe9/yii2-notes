@@ -31,7 +31,7 @@ php -r "unlink('composer-setup.php');"
 composer -v 
 #拷贝，可全局使用
 sudo mv composer.phar /usr/local/bin/composer
-composer global require "fxp/composer-asset-plugin:^1.4.4”
+composer global require "fxp/composer-asset-plugin:^1.4.4"
 ```
 ## 进入项目目录，初始化yii2 高级模板
 ```
