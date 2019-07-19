@@ -1,6 +1,6 @@
 # yii2笔记
 
-####  也可安装YII官方文档安装： https://www.yiichina.com/doc/guide/2.0/start-installation 
+####  也可根据YII官方文档安装： https://www.yiichina.com/doc/guide/2.0/start-installation 
 #### 这里开发和线上环境都是 ubuntu（18.04）+php(7.2)+nginx+mysql
 
 ## 安装nginx、php、mysql、memcache、redis、apc、imagick、supervisor、composer及php其他扩展，不用的可以去掉
@@ -261,4 +261,168 @@ user=www-data
 numprocs=5
 redirect_stderr=true
 stdout_logfile=/tmp/queue2.log
+```
+## 发布脚本   https://deployer.org/
+根据官方文档安装，然后将此文件放到项目目录下，需要使用某个人的ssh-key放到服务器上免登陆，也可以按照官方文档指定ssh-key
+```
+<?php
+namespace Deployer;
+
+require 'recipe/common.php';
+require 'vendor/deployer/recipes/recipe/cachetool.php';
+
+set('default_timeout', 600);
+
+// Project name
+set('application', 'xxxx');
+
+// Project repository
+set('repository', 'git仓库');
+
+// [Optional] Allocate tty for git clone. Default value is false.
+set('git_tty', true);
+
+// 所有的项目
+$apps = [
+   'app1',
+   'app2'
+];
+
+$shared_files = [
+    'common/config/main-local.php',
+    'common/config/params-local.php',
+    'console/config/main-local.php',
+    'console/config/params-local.php',
+];
+
+foreach ($apps as $app) {
+    $shared_files[] = $app.'/config/main-local.php';
+    $shared_files[] = $app.'/config/params-local.php';
+}
+
+// Shared files/dirs between deploys
+set('shared_files', $shared_files);
+
+$shared_dirs = [
+];
+foreach ($apps as $app) {
+    $shared_dirs[] = $app.'/runtime';
+}
+
+set('shared_dirs', $shared_dirs);
+
+$writable_dirs = [
+];
+foreach ($apps as $app) {
+    $writable_dirs[] = $app.'/runtime';
+}
+
+// Writable dirs by web server
+set('writable_dirs', $writable_dirs);
+set('writable_use_sudo', true);
+
+// Hosts
+set('default_stage', 'dev');
+set('deploy_path', '/data/deploy/xxx');
+
+// dev 测试环境
+host('ip1', 'ip2')
+    ->user('ubuntu')
+    ->stage('dev')
+    ->set('deploy_path', get('deploy_path'))
+    ->set('cachetool', '/var/run/php/php7.2-fpm.sock');
+
+// prod 正式环境
+host('ip3', 'ip4')
+    ->user('ubuntu')
+    ->stage('prod')
+    ->set('deploy_path', get('deploy_path'))
+    ->set('cachetool', '/var/run/php/php7.2-fpm.sock');
+
+// composer 参数，测试环境跟正式环境不一样
+task('composer_dev', function () {
+    $stage = $_SERVER['argv'][2];
+    $no_dev = '';
+    if ($stage == 'prod') {
+        // 正式环境不需要dev
+        $no_dev = '--no-dev';
+    }
+    set('composer_options', '{{composer_action}} --verbose --prefer-dist --no-progress --no-interaction '.$no_dev.' --optimize-autoloader --no-suggest');
+})->desc('composer install');
+
+// 根据环境不同，设置不同的脚本 nginx 配置
+task('nginx_config', function () {
+    $stage = $_SERVER['argv'][2];
+    if ($stage == 'dev') {
+        // 测试环境 可以将本机的nginx配置复制到线上部署
+        run('sudo cp -rf {{release_path}}/common/config/nginxconf/test_cert/* /etc/nginx/cert/');
+        run('sudo cp -rf {{release_path}}/common/config/nginxconf/xxx_test /etc/nginx/sites-enabled/xxx.conf');
+        run('sudo nginx -s reload');
+    } else if ($stage == 'prod') {
+        // 正式环境
+        run('sudo cp -rf {{release_path}}/common/config/nginxconf/xxx /etc/nginx/sites-enabled/xxx.conf');
+        run('sudo nginx -s reload');
+    }
+})->desc('nginx config');
+
+// 运行migrations
+task('deploy:run_migrations', function () {
+    $dbs = [
+        'db1',
+        'db2',
+    ];
+    foreach ($dbs as $db) {
+        run('{{bin/php}} {{release_path}}/yii migrate --migrationPath={{release_path}}/migrations/'.$db.' --db='.$db.' --interactive=0');
+    }
+
+    run('{{bin/php}} {{release_path}}/yii rbac-pc/init');
+    run('{{bin/php}} {{release_path}}/yii cache/flush schemaCache --interactive=0');
+})->desc('Run migrations');
+
+// SUPERVISORD 配置
+task('deploy:supervisor_config', function () {
+    $stage = $_SERVER['argv'][2];
+    $stageStr = $stage == 'prod' ? '' : '-dev';
+    run('sudo cp -rf {{release_path}}/common/config/supervisor/yii-queue'.$stageStr.'.conf /etc/supervisor/conf.d/yii-queue.conf');
+    run('sudo supervisorctl stop all');
+    run('sudo supervisorctl update');
+    run('sudo supervisorctl start all');
+})->desc('Run supervisor_config');
+
+// index 文件
+task('index_cp', function () use ($apps) {
+    $stage = $_SERVER['argv'][2];
+    run('cp -rf {{release_path}}/environments/'.$stage.'/yii {{release_path}}/yii');
+    foreach ($apps as $app) {
+        run('cp -rf {{release_path}}/environments/'.$stage.'/xxx/web/index.php {{release_path}}/'.$app.'/web/index.php');
+    }
+})->desc('cp index.php');
+
+// Tasks
+task('deploy', [
+    'deploy:info',
+    'deploy:prepare',
+    'deploy:lock',
+    'deploy:release',
+    'deploy:update_code',
+    'deploy:shared',
+    'deploy:writable',
+    'index_cp',
+    'composer_dev',
+    'deploy:vendors',
+    'deploy:clear_paths',
+    'deploy:run_migrations',
+    //'deploy:supervisor_config', // 需要运行的时候放开
+    //'nginx_config', // 需要设置的时候放开
+    'deploy:symlink',
+    'deploy:unlock',
+    'cleanup',
+    'success'
+])->desc('Deploy your project');
+
+after('deploy:symlink', 'cachetool:clear:opcache');
+
+// [Optional] If deploy fails automatically unlock.
+after('deploy:failed', 'deploy:unlock');
+
 ```
