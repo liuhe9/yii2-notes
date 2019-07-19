@@ -262,11 +262,14 @@ numprocs=5
 redirect_stderr=true
 stdout_logfile=/tmp/queue2.log
 ```
-## 发布脚本   https://deployer.org/
+## 发布脚本   https://deployer.org/ (有自己的发布流程可忽略)
 根据官方文档安装，然后将此文件放到项目目录下，需要使用某个人的ssh-key放到服务器上免登陆，也可以按照官方文档指定ssh-key
-发布命令,到项目目录下 dep deploy dev  
+发布命令,到项目目录下 
+```
+dep deploy dev  
 dep deploy prod
-dev|prod 为下面 host的别名
+```
+dev|prod 为下面代码中host的别名，deploy.php
 ```
 <?php
 namespace Deployer;
