@@ -5,7 +5,7 @@
 
 ## 安装nginx、php、mysql、memcache、redis、apc、imagick、supervisor、composer及php其他扩展，不用的可以去掉
 ```
-apt-get install nginx php7.2 php7.2-fpm php7.2-mysql php7.2-memcache php7.2-redis php7.2-apc php7.2-imagick  php7.2-mbstring php7.2-gd php7.2-curl php7.2-simplexml  php7.2-intl php7.2-pdo-sqlite php7.2-pdo-mysql php7.2-pdo-pgs  php7.2-bcmath php7.2-zip php7.2-curl php7.2-xml php7.2-json php7.2-gd php7.2-mbstring supervisor 
+apt-get install nginx php7.2 php7.2-fpm php7.2-mysql php7.2-memcache php7.2-redis php7.2-apc php7.2-imagick  php7.2-mbstring php7.2-gd php7.2-curl php7.2-simplexml  php7.2-intl php7.2-pdo-sqlite php7.2-pdo-mysql php7.2-pdo-pgs  php7.2-bcmath php7.2-zip php7.2-curl php7.2-xml php7.2-json php7.2-gd  supervisor 
 ```
 ## 更新php环境至7.2 (如已安装php7.2 fpm，可跳过此步骤)
 ```
